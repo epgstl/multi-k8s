@@ -1,9 +1,27 @@
 #sudo: required
 services:
   - docker
+env:
+  global:
+    - SHA=$(git rev-parse --short HEAD^{commit})
+    - CLOUDSDK_CORE_DISABLE_PROMPTS=1
 before_install:
   #- openssl ... 
   - curl https://sdk.cloud.google.com | bash > /dev/null;
   - source $HOME/google-cloud-sdk/path.bash.inc
   - gcloud components update kubectl
   - gcloud auth activate-service-account --key-file service-account.json
+  - gcloud config set project objective-mendeleev-32313
+  - gcloud config set compute/zone us-central1-account
+  - gcloud container clusters get-credentials mult-cluster
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - docker build -t epg/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run -e CI=true epg/react-test npm run test -- --coverage
+
+deploy:
+  provider: script
+  script: bash ./deploy.sh
+  on:
+    branch: master
